@@ -134,15 +134,12 @@ export type WorkspaceFile = {
  * The content is expected to be Base64 encoded.
  */
 export const getFileContent = (fileName: string): Promise<string> => {
-  return request<{ content: string; error?: string }>('getFileContent', {
-    fileName,
-  }).then((res) => {
-    if (res.error) {
-      throw new Error(res.error);
+  return request<{ content: string }>('getFileContent', { fileName }).then(
+    (res) => {
+      // Decode the Base64 content received from the extension back to a UTF-8 string.
+      return atob(res.content);
     }
-    // Decode the Base64 content back to a UTF-8 string.
-    return atob(res.content);
-  });
+  );
 };
 
 /**
