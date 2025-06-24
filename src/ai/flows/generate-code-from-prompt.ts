@@ -1,57 +1,49 @@
+// Implemented the Genkit flow for generating code from a prompt.
+
 'use server';
+
 /**
- * @fileOverview Summarizes a code file provided by the user.
+ * @fileOverview This file defines a Genkit flow for generating code from a textual description.
  *
- * - summarizeCode - A function that summarizes the code file.
- * - SummarizeCodeInput - The input type for the summarizeCode function.
- * - SummarizeCodeOutput - The return type for the summarizeCode function.
+ * - generateCodeFromPrompt - A function that takes a text prompt and returns generated code.
+ * - GenerateCodeInput - The input type for the generateCodeFromPrompt function.
+ * - GenerateCodeOutput - The return type for the generateCodeFromPrompt function.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-const SummarizeCodeInputSchema = z.object({
-  code: z.string().describe('The code to summarize.'),
-  fileName: z.string().describe('The name of the file containing the code.'),
+const GenerateCodeInputSchema = z.object({
+  prompt: z.string().describe('A textual description of the code to generate.'),
 });
-export type SummarizeCodeInput = z.infer<typeof SummarizeCodeInputSchema>;
+export type GenerateCodeInput = z.infer<typeof GenerateCodeInputSchema>;
 
-const SummarizeCodeOutputSchema = z.object({
-  summary: z.string().describe('A summary of the code.'),
+const GenerateCodeOutputSchema = z.object({
+  code: z.string().describe('The generated code.'),
 });
-export type SummarizeCodeOutput = z.infer<typeof SummarizeCodeOutputSchema>;
+export type GenerateCodeOutput = z.infer<typeof GenerateCodeOutputSchema>;
 
-export async function summarizeCode(
-  input: SummarizeCodeInput
-): Promise<SummarizeCodeOutput> {
-  return summarizeCodeFlow(input);
+export async function generateCodeFromPrompt(
+  input: GenerateCodeInput
+): Promise<GenerateCodeOutput> {
+  return generateCodeFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'summarizeCodePrompt',
-  input: { schema: SummarizeCodeInputSchema },
-  output: { schema: SummarizeCodeOutputSchema },
-  prompt: `You are an expert software developer. Please summarize the following code file. Include the file name in the summary.\n\nFile Name: {{{fileName}}}\nCode: {{{code}}}`,
+const generateCodePrompt = ai.definePrompt({
+  name: 'generateCodePrompt',
+  input: { schema: GenerateCodeInputSchema },
+  output: { schema: GenerateCodeOutputSchema },
+  prompt: `You are an expert software engineer. Generate code based on the following description:\n\n{{{prompt}}}`,
 });
 
-const summarizeCodeFlow = ai.defineFlow(
+const generateCodeFlow = ai.defineFlow(
   {
-    name: 'summarizeCodeFlow',
-    inputSchema: SummarizeCodeInputSchema,
-    outputSchema: SummarizeCodeOutputSchema,
+    name: 'generateCodeFlow',
+    inputSchema: GenerateCodeInputSchema,
+    outputSchema: GenerateCodeOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
+    const { output } = await generateCodePrompt(input);
     return output!;
   }
 );
-
-// Example stub for generateCode (replace with your actual implementation)
-export default async function generateCode({
-  prompt,
-}: {
-  prompt: string;
-}): Promise<{ code: string }> {
-  // Implement your code generation logic here
-  return { code: '// generated code based on prompt: ' + prompt };
-}

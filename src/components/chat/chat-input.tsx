@@ -5,8 +5,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Send, FileText, ImageIcon, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { MOCK_FILES, type FileAttachment } from '@/types';
+import { type FileAttachment } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  getWorkspaceFiles,
+  onWorkspaceFilesUpdate,
+  type WorkspaceFile,
+} from '@/lib/vscode';
 
 interface ChatInputProps {
   onSendMessage: (content: string, attachments: FileAttachment[]) => void;
@@ -17,8 +22,15 @@ export function ChatInput({ onSendMessage, isSending }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    getWorkspaceFiles().then(setWorkspaceFiles);
+    const unsubscribe = onWorkspaceFilesUpdate(setWorkspaceFiles);
+    return () => unsubscribe();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -30,7 +42,7 @@ export function ChatInput({ onSendMessage, isSending }: ChatInputProps) {
     setInput(value);
   };
 
-  const handleFileSelect = (file: FileAttachment) => {
+  const handleFileSelect = (file: WorkspaceFile) => {
     setAttachments((prev) => [...prev, file]);
     setInput((prev) => prev.substring(0, prev.lastIndexOf('@')));
     setPopoverOpen(false);
@@ -80,21 +92,21 @@ export function ChatInput({ onSendMessage, isSending }: ChatInputProps) {
                   <p className='text-xs text-muted-foreground p-2'>
                     Attach a file
                   </p>
-                  {MOCK_FILES.filter(
-                    (f) => !attachments.find((a) => a.name === f.name)
-                  ).map((file) => (
-                    <button
-                      key={file.name}
-                      onClick={() => handleFileSelect(file)}
-                      className='flex items-center gap-2 p-2 rounded-md text-left text-sm hover:bg-accent hover:text-accent-foreground'>
-                      {file.type === 'image' ? (
-                        <ImageIcon className='h-4 w-4 flex-shrink-0' />
-                      ) : (
-                        <FileText className='h-4 w-4 flex-shrink-0' />
-                      )}
-                      <span className='font-code truncate'>{file.name}</span>
-                    </button>
-                  ))}
+                  {workspaceFiles
+                    .filter((f) => !attachments.find((a) => a.name === f.name))
+                    .map((file) => (
+                      <button
+                        key={file.name}
+                        onClick={() => handleFileSelect(file)}
+                        className='flex items-center gap-2 p-2 rounded-md text-left text-sm hover:bg-accent hover:text-accent-foreground'>
+                        {file.type === 'image' ? (
+                          <ImageIcon className='h-4 w-4 flex-shrink-0' />
+                        ) : (
+                          <FileText className='h-4 w-4 flex-shrink-0' />
+                        )}
+                        <span className='font-code truncate'>{file.name}</span>
+                      </button>
+                    ))}
                 </div>
               </CardContent>
             </Card>

@@ -8,7 +8,7 @@ export interface Message {
 export interface FileAttachment {
   name: string;
   type: 'file' | 'image';
-  content?: string; // For text files on server-side
+  content?: string; // Content is fetched from VS Code before sending to AI
 }
 
 export const MOCK_FILES: FileAttachment[] = [

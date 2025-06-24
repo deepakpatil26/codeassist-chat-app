@@ -5,8 +5,11 @@ import { type Message, type FileAttachment } from '@/types';
 import { getAiResponse } from '@/app/actions';
 import { ChatInput } from './chat-input';
 import { ChatMessages } from './chat-messages';
+import { getFileContent } from '@/lib/vscode';
+import { useToast } from '@/hooks/use-toast';
 
 export function ChatLayout() {
+  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -19,28 +22,53 @@ export function ChatLayout() {
 
   const handleSendMessage = async (
     content: string,
-    attachments: FileAttachment[]
+    attachments: FileAttachment[] // These attachments DON'T have content yet
   ) => {
     if (isSending) return;
 
     setIsSending(true);
-    const newMessage: Message = {
-      id: String(Date.now()),
-      role: 'user',
-      content,
-      attachments,
-    };
-    setMessages((prev) => [...prev, newMessage]);
 
     const assistantTypingMessage: Message = {
       id: String(Date.now() + 1),
       role: 'assistant',
       content: '...', // typing indicator
     };
-    setMessages((prev) => [...prev, assistantTypingMessage]);
 
     try {
-      const response = await getAiResponse(content, attachments);
+      // Step 1: Fetch content for all attachments from the VS Code extension
+      const attachmentsWithContent = await Promise.all(
+        attachments.map(async (att) => {
+          if (att.type === 'file' && !att.content) {
+            try {
+              const fileContent = await getFileContent(att.name);
+              return { ...att, content: fileContent };
+            } catch (error) {
+              console.error(`Failed to get content for ${att.name}`, error);
+              toast({
+                variant: 'destructive',
+                title: `Error reading file: ${att.name}`,
+                description: 'Could not read the file from the workspace.',
+              });
+              // Re-throw to stop the process
+              throw new Error(`Failed to get content for ${att.name}`);
+            }
+          }
+          // For images or files that might already have content
+          return att;
+        })
+      );
+
+      // Step 2: Add the user message to the UI
+      const newMessage: Message = {
+        id: String(Date.now()),
+        role: 'user',
+        content,
+        attachments: attachmentsWithContent,
+      };
+      setMessages((prev) => [...prev, newMessage, assistantTypingMessage]);
+
+      // Step 3: Call the AI with the complete data
+      const response = await getAiResponse(content, attachmentsWithContent);
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantTypingMessage.id
@@ -50,15 +78,9 @@ export function ChatLayout() {
       );
     } catch (error) {
       console.error(error);
+      // Remove the typing indicator on failure
       setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantTypingMessage.id
-            ? {
-                ...msg,
-                content: 'An error occurred while fetching the response.',
-              }
-            : msg
-        )
+        prev.filter((msg) => msg.id !== assistantTypingMessage.id)
       );
     } finally {
       setIsSending(false);
