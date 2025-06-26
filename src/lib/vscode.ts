@@ -104,7 +104,8 @@ export type WorkspaceFile = {
 
 /**
  * Requests the content of a specific file from the VS Code workspace.
- * The content is expected to be Base64 encoded.
+ * The content is expected to be Base64 encoded and is decoded to a UTF-8 string.
+ * Use this for text-based files.
  */
 export const getFileContent = (fileName: string): Promise<string> => {
   return request<{ content: string }>('getFileContent', { fileName }).then(
@@ -112,6 +113,17 @@ export const getFileContent = (fileName: string): Promise<string> => {
       // Decode the Base64 content received from the extension back to a UTF-8 string.
       return atob(res.content);
     }
+  );
+};
+
+/**
+ * Requests the content of a specific file from the VS Code workspace
+ * and returns it as a raw Base64 string.
+ * Use this for binary files like images.
+ */
+export const getFileContentAsBase64 = (fileName: string): Promise<string> => {
+  return request<{ content: string }>('getFileContent', { fileName }).then(
+    (res) => res.content
   );
 };
 
