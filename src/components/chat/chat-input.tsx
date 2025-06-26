@@ -34,17 +34,22 @@ export function ChatInput({ onSendMessage, isSending }: ChatInputProps) {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
-    if (value.slice(-1) === '@') {
+    const atIndex = value.lastIndexOf('@');
+
+    // Show popover if @ is present and there's no space after it.
+    if (atIndex !== -1 && !value.substring(atIndex + 1).includes(' ')) {
       setPopoverOpen(true);
-    } else if (popoverOpen && !value.includes('@')) {
+    } else {
       setPopoverOpen(false);
     }
+
     setInput(value);
   };
 
   const handleFileSelect = (file: WorkspaceFile) => {
     setAttachments((prev) => [...prev, file]);
-    setInput((prev) => prev.substring(0, prev.lastIndexOf('@')));
+    // Replace the @mention with nothing, and add a space for better UX
+    setInput((prev) => prev.substring(0, prev.lastIndexOf('@')) + ' ');
     setPopoverOpen(false);
     textareaRef.current?.focus();
   };
@@ -79,6 +84,22 @@ export function ChatInput({ onSendMessage, isSending }: ChatInputProps) {
     };
   }, [containerRef]);
 
+  // --- Filtering Logic ---
+  const atIndex = input.lastIndexOf('@');
+  // Check if we are in a state to search for files
+  const isSearching = popoverOpen && atIndex !== -1;
+  const searchTerm = isSearching
+    ? input.substring(atIndex + 1).toLowerCase()
+    : '';
+
+  const filteredFiles = isSearching
+    ? workspaceFiles.filter(
+        (f) =>
+          !attachments.find((a) => a.name === f.name) &&
+          f.name.toLowerCase().includes(searchTerm)
+      )
+    : [];
+
   return (
     <div
       className='p-4 border-t border-border bg-background'
@@ -90,23 +111,37 @@ export function ChatInput({ onSendMessage, isSending }: ChatInputProps) {
               <CardContent className='p-1 max-h-60 overflow-y-auto'>
                 <div className='flex flex-col space-y-1'>
                   <p className='text-xs text-muted-foreground p-2'>
-                    Attach a file
+                    {searchTerm
+                      ? `Results for "${searchTerm}"`
+                      : 'Attach a file from your workspace'}
                   </p>
-                  {workspaceFiles
-                    .filter((f) => !attachments.find((a) => a.name === f.name))
-                    .map((file) => (
-                      <button
-                        key={file.name}
-                        onClick={() => handleFileSelect(file)}
-                        className='flex items-center gap-2 p-2 rounded-md text-left text-sm hover:bg-accent hover:text-accent-foreground'>
-                        {file.type === 'image' ? (
-                          <ImageIcon className='h-4 w-4 flex-shrink-0' />
-                        ) : (
-                          <FileText className='h-4 w-4 flex-shrink-0' />
-                        )}
-                        <span className='font-code truncate'>{file.name}</span>
-                      </button>
-                    ))}
+                  {filteredFiles.length > 0 ? (
+                    filteredFiles.slice(0, 50).map(
+                      (
+                        file // Limit to 50 results for performance
+                      ) => (
+                        <button
+                          key={file.name}
+                          onClick={() => handleFileSelect(file)}
+                          className='flex items-center gap-2 p-2 rounded-md text-left text-sm hover:bg-accent hover:text-accent-foreground'>
+                          {file.type === 'image' ? (
+                            <ImageIcon className='h-4 w-4 flex-shrink-0' />
+                          ) : (
+                            <FileText className='h-4 w-4 flex-shrink-0' />
+                          )}
+                          <span className='font-code truncate'>
+                            {file.name}
+                          </span>
+                        </button>
+                      )
+                    )
+                  ) : (
+                    <p className='text-xs text-muted-foreground p-2 text-center'>
+                      {workspaceFiles.length === 0
+                        ? 'Loading files...'
+                        : 'No files found.'}
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
