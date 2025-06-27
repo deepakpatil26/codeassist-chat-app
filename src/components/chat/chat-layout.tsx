@@ -20,7 +20,17 @@ export function ChatLayout() {
       id: '1',
       role: 'assistant',
       content:
-        'Hello! I am CodeAssist. I can help you generate, summarize, and refactor code. \n\nTo get started, try one of these: \n- Ask me to create a new component. \n- Attach a file with `@` and ask me to summarize it. \n- Attach a file and ask me to refactor it (e.g., "@src/app/page.tsx refactor to use a button").',
+        "Hello! I'm CodeAssist, your AI pair programmer. Here's how I can help you:\n\n" +
+        '**1. Inline Code Suggestions**\n' +
+        "Just like GitHub Copilot, I'll automatically provide single-line completions as you type.\n" +
+        '- Suggestions appear as ghost text.\n' +
+        '- Press `Tab` to accept them.\n\n' +
+        '**2. Powerful Chat & Code Blocks**\n' +
+        '- **Ask anything:** Generate, refactor, or explain code.\n' +
+        '- **Attach files:** Use `@` to add workspace files to your prompt for context.\n' +
+        '- **Use code blocks:** When I provide code, you can now click the icons to **Copy** it or **Insert** it directly into your active editor.\n\n' +
+        '**3. Right-Click Actions**\n' +
+        'Right-click on any file in the editor or explorer and select **Summarize** or **Refactor** to start a new chat with that file as context.',
     },
   ]);
   const [isSending, setIsSending] = useState(false);
