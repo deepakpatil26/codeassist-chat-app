@@ -1,11 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { type Message, type FileAttachment } from '@/types';
-import { getAiResponse } from '@/app/actions';
+import { getAiResponse, getInlineSuggestion } from '@/app/actions';
 import { ChatInput } from './chat-input';
 import { ChatMessages } from './chat-messages';
-import { getFileContent } from '@/lib/vscode';
+import {
+  getFileContent,
+  onNewChatRequest,
+  onInlineCompletionRequest,
+  sendInlineCompletionResult,
+} from '@/lib/vscode';
 import { useToast } from '@/hooks/use-toast';
 
 export function ChatLayout() {
@@ -20,9 +25,37 @@ export function ChatLayout() {
   ]);
   const [isSending, setIsSending] = useState(false);
 
+  // Listen for commands from the VS Code extension (e.g., right-click menus)
+  useEffect(() => {
+    const unsubscribe = onNewChatRequest(({ fileName, prompt }) => {
+      const attachment: FileAttachment = { name: fileName, type: 'file' };
+      handleSendMessage(prompt, [attachment]);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Listen for inline completion requests from the extension
+  useEffect(() => {
+    const unsubscribe = onInlineCompletionRequest(async (data) => {
+      try {
+        const fullContent = await getFileContent(data.fileName);
+        const result = await getInlineSuggestion({
+          line: data.line,
+          fullContent: fullContent,
+          language: data.language,
+        });
+        sendInlineCompletionResult(result.suggestion);
+      } catch (error) {
+        console.error('Inline suggestion failed:', error);
+        sendInlineCompletionResult(''); // Send empty on error
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const handleSendMessage = async (
     content: string,
-    attachments: FileAttachment[] // These attachments DON'T have content yet
+    attachments: FileAttachment[]
   ) => {
     if (isSending) return;
 
@@ -35,7 +68,6 @@ export function ChatLayout() {
     };
 
     try {
-      // Step 1: Fetch content for all attachments from the VS Code extension
       const attachmentsWithContent = await Promise.all(
         attachments.map(async (att) => {
           if (att.type === 'file' && !att.content) {
@@ -49,16 +81,13 @@ export function ChatLayout() {
                 title: `Error reading file: ${att.name}`,
                 description: 'Could not read the file from the workspace.',
               });
-              // Re-throw to stop the process
               throw new Error(`Failed to get content for ${att.name}`);
             }
           }
-          // For images or files that might already have content
           return att;
         })
       );
 
-      // Step 2: Add the user message to the UI
       const newMessage: Message = {
         id: String(Date.now()),
         role: 'user',
@@ -67,7 +96,6 @@ export function ChatLayout() {
       };
       setMessages((prev) => [...prev, newMessage, assistantTypingMessage]);
 
-      // Step 3: Call the AI with the complete data
       const response = await getAiResponse(content, attachmentsWithContent);
       setMessages((prev) =>
         prev.map((msg) =>
@@ -78,7 +106,6 @@ export function ChatLayout() {
       );
     } catch (error) {
       console.error(error);
-      // Remove the typing indicator on failure
       setMessages((prev) =>
         prev.filter((msg) => msg.id !== assistantTypingMessage.id)
       );

@@ -5,6 +5,7 @@ import { provideContextualSuggestions } from '@/ai/flows/provide-contextual-sugg
 import { summarizeCode } from '@/ai/flows/summarize-code';
 import { refactorCode } from '@/ai/flows/refactor-code';
 import { type FileAttachment } from '@/types';
+import { provideInlineSuggestion } from '@/ai/flows/provide-inline-suggestion';
 
 export async function getAiResponse(
   message: string,
@@ -63,4 +64,12 @@ export async function getAiResponse(
     console.error('Error getting AI response:', error);
     return 'Sorry, I encountered an error. Please try again.';
   }
+}
+
+export async function getInlineSuggestion(input: {
+  line: string;
+  fullContent: string;
+  language: string;
+}) {
+  return provideInlineSuggestion(input);
 }

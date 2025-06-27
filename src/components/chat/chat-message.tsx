@@ -1,44 +1,135 @@
 'use client';
 
+import { useState } from 'react';
 import { type Message, type FileAttachment } from '@/types';
 import { cn } from '@/lib/utils';
-import { User, Bot, FileText, ImageIcon } from 'lucide-react';
+import {
+  User,
+  Bot,
+  FileText,
+  ImageIcon,
+  ClipboardCopy,
+  Download,
+  Check,
+} from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { insertText } from '@/lib/vscode';
 
 interface ChatMessageProps {
   message: Message;
 }
 
-const CodeBlock = ({ code }: { code: string }) => {
+const CodeBlock = ({ code, lang }: { code: string; lang: string }) => {
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    toast({ title: 'Copied to clipboard!' });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleInsert = () => {
+    insertText(code);
+    toast({
+      title: 'Code inserted',
+      description: 'The code has been inserted into your active editor.',
+    });
+  };
+
   return (
-    <pre className='bg-background border border-border p-4 my-2 rounded-md font-code text-sm overflow-x-auto'>
-      <code>{code}</code>
-    </pre>
+    <div className='my-2 rounded-md border bg-secondary/30 font-code text-sm'>
+      <div className='flex items-center justify-between bg-secondary/50 px-4 py-1.5 border-b'>
+        <span className='text-xs text-muted-foreground'>{lang || 'code'}</span>
+        <div className='flex items-center gap-3'>
+          <button
+            onClick={handleInsert}
+            className='text-muted-foreground hover:text-foreground transition-colors'
+            title='Insert code at cursor'>
+            <Download className='h-3.5 w-3.5' />
+          </button>
+          <button
+            onClick={handleCopy}
+            className='text-muted-foreground hover:text-foreground transition-colors'
+            title='Copy code'>
+            {copied ? (
+              <Check className='h-3.5 w-3.5 text-green-500' />
+            ) : (
+              <ClipboardCopy className='h-3.5 w-3.5' />
+            )}
+          </button>
+        </div>
+      </div>
+      <pre className='p-4 overflow-x-auto'>
+        <code>{code}</code>
+      </pre>
+    </div>
   );
 };
 
 const renderContent = (content: string) => {
-  const codeBlockRegex = /```(?:[a-z]+)?\n([\s\S]*?)```/g;
-  const parts = content.split(codeBlockRegex);
+  const output: React.ReactNode[] = [];
+  let lastIndex = 0;
+  const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
 
-  return parts.map((part, index) => {
-    if (index % 2 === 1) {
-      return (
-        <CodeBlock
-          key={index}
-          code={part.trim()}
-        />
+  for (const match of content.matchAll(codeBlockRegex)) {
+    const [fullMatch, lang, code] = match;
+    const matchIndex = match.index!;
+
+    // Add text before the code block
+    if (matchIndex > lastIndex) {
+      const text = content.substring(lastIndex, matchIndex);
+      output.push(
+        text.split('\n').map((line, i) => (
+          <p
+            key={`text-${lastIndex}-${i}`}
+            className='mb-2 last:mb-0'>
+            {line}
+          </p>
+        ))
       );
     }
-    return part.split('\n').map((line, i) => (
+
+    // Add the code block
+    output.push(
+      <CodeBlock
+        key={`code-${matchIndex}`}
+        code={code.trim()}
+        lang={lang}
+      />
+    );
+    lastIndex = matchIndex + fullMatch.length;
+  }
+
+  // Add any remaining text after the last code block
+  if (lastIndex < content.length) {
+    const text = content.substring(lastIndex);
+    output.push(
+      text.split('\n').map((line, i) => (
+        <p
+          key={`text-final-${i}`}
+          className='mb-2 last:mb-0'>
+          {line}
+        </p>
+      ))
+    );
+  }
+
+  // If no code blocks are found, render the whole thing as plain text
+  if (output.length === 0) {
+    return content.split('\n').map((line, i) => (
       <p
-        key={`${index}-${i}`}
+        key={`text-plain-${i}`}
         className='mb-2 last:mb-0'>
         {line}
       </p>
     ));
-  });
+  }
+
+  return output;
 };
 
 const AttachmentBadge = ({ attachment }: { attachment: FileAttachment }) => (

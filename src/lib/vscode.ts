@@ -156,3 +156,26 @@ export const onNewChatRequest = (
 ): (() => void) => {
   return listen('startNewChat', callback);
 };
+
+/**
+ * Sends text to be inserted into the active editor at the current cursor position.
+ */
+export const insertText = (text: string) => {
+  postToParent({ command: 'insertText', data: { text } });
+};
+
+/**
+ * Subscribes to inline completion requests from the extension.
+ */
+export const onInlineCompletionRequest = (
+  callback: (data: { line: string; fileName: string; language: string }) => void
+): (() => void) => {
+  return listen('inlineCompletion', callback);
+};
+
+/**
+ * Sends the result of an inline completion back to the extension.
+ */
+export const sendInlineCompletionResult = (suggestion: string) => {
+  postToParent({ command: 'inlineCompletionResult', data: { suggestion } });
+};
